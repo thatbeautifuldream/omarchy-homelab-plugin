@@ -156,9 +156,16 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: root.serviceCount > 0 ? String(root.serviceCount) : "󰒋"
-    slotSize: root.serviceCount > 99 ? Style.bar.statusSlot + Style.space(8) : Style.bar.statusSlot
-    tooltipText: root.serviceCount + " listening ports"
+    tooltipText: "Homelab"
+    iconComponent: Component {
+      Item {
+        HomelabIcon {
+          anchors.centerIn: parent
+          iconSize: Style.space(15)
+          color: button.foreground
+        }
+      }
+    }
 
     onPressed: function(b) {
       if (b === Qt.MiddleButton || b === Qt.RightButton) root.refresh()

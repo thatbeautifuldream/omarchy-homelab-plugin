@@ -102,6 +102,8 @@ manifest.json
 BarWidget.qml
 Panel.qml
 Model.js
+HomelabIcon.qml
+homelab.svg
 poll-services
 ```
 
