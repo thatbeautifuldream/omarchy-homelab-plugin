@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+plugin_id="thatbeautifuldream.homelab"
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+source_dir="${HOME}/.config/omarchy/plugins/${plugin_id}"
+
+if [[ ! -e "$source_dir" ]]; then
+  printf 'No installed plugin found at %s\n' "$source_dir" >&2
+  exit 1
+fi
+
+source_real="$(realpath -- "$source_dir")"
+if [[ "$source_real" == "$repo_root" ]]; then
+  printf 'Installed plugin already points at this repo; nothing to sync.\n'
+  exit 0
+fi
+
+rsync -a --delete \
+  --exclude '.git/' \
+  --exclude '.gitignore' \
+  --exclude 'README.md' \
+  --exclude 'LICENSE' \
+  --exclude 'scripts/' \
+  --exclude '*.bak.*' \
+  "$source_dir/" "$repo_root/"
+
+chmod +x -- "$repo_root/poll-services"
+printf 'Synced installed plugin into %s\n' "$repo_root"

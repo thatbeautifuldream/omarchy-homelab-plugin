@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+plugin_id="thatbeautifuldream.homelab"
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+target_dir="${HOME}/.config/omarchy/plugins/${plugin_id}"
+
+if [[ -L "$target_dir" ]]; then
+  rm -- "$target_dir"
+fi
+
+mkdir -p -- "$target_dir"
+rsync -a --delete \
+  --exclude '.git/' \
+  --exclude '*.bak.*' \
+  "$repo_root/" "$target_dir/"
+chmod +x -- "$target_dir/poll-services"
+printf 'Synced repo into %s\n' "$target_dir"
+
+if command -v omarchy-shell >/dev/null 2>&1; then
+  omarchy-shell shell rescanPlugins >/dev/null || true
+fi

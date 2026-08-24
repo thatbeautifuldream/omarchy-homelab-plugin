@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cat >&2 <<'MSG'
+Omarchy rejects symlinked plugin folders during validation.
+Using copy-based local sync instead.
+MSG
+
+exec "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)/sync-to-omarchy"

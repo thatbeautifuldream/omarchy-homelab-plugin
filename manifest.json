@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "thatbeautifuldream.homelab",
+  "name": "Homelab",
+  "version": "0.1.0",
+  "author": "Milind Mishra",
+  "license": "MIT",
+  "description": "Launch app/container endpoints first, with raw system ports collapsed behind a disclosure.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Homelab",
+    "description": "Shows app/container endpoints first and keeps raw system ports collapsed.",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
