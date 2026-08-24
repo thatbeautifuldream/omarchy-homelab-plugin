@@ -6,7 +6,7 @@ It scans listening TCP/UDP sockets with `ss`, merges Docker-published ports when
 
 ## Features
 
-- Omarchy bar widget with a keyboard-friendly popup.
+- Omarchy `bar-widget` plugin with a keyboard-friendly popup.
 - App/container endpoints shown before raw system sockets.
 - Docker-published ports merged with matching `ss` rows.
 - System ports collapsed by default.
@@ -19,9 +19,11 @@ It scans listening TCP/UDP sockets with `ss`, merges Docker-published ports when
   - Left click: open/copy row.
   - Right click: copy row.
 
-## Public install
+## Install
 
-After reviewing the code, install through Omarchy's git-backed plugin installer:
+Omarchy's official plugin contract is a public git repository with `manifest.json` at the repository root. The installer clones the repo into `~/.config/omarchy/plugins/<id>/`; updates are fast-forward pulls of that checkout.
+
+Review the code first. Plugins run unsandboxed inside the long-running `omarchy-shell` process.
 
 ```bash
 omarchy plugin add https://github.com/thatbeautifuldream/omarchy-homelab-plugin.git --enable
@@ -33,10 +35,16 @@ Non-interactive install:
 omarchy plugin add https://github.com/thatbeautifuldream/omarchy-homelab-plugin.git --enable --yes
 ```
 
-Update later:
+Update:
 
 ```bash
 omarchy plugin update thatbeautifuldream.homelab
+```
+
+Non-interactive update:
+
+```bash
+omarchy plugin update thatbeautifuldream.homelab --yes
 ```
 
 Remove:
@@ -45,39 +53,38 @@ Remove:
 omarchy plugin remove thatbeautifuldream.homelab
 ```
 
-Plugins run unsandboxed inside `omarchy-shell`. Only install plugins whose source you have reviewed and trust.
-
 ## Local development
 
-Clone the repo, edit there, then sync it into Omarchy's user plugin directory:
+Work in the source repo, push commits, then update the installed Omarchy checkout through the same git-managed path users get.
 
 ```bash
 git clone https://github.com/thatbeautifuldream/omarchy-homelab-plugin.git ~/code/self/omarchy-homelab-plugin
 cd ~/code/self/omarchy-homelab-plugin
-make sync-to
+make validate
+make install-local
 ```
 
-Omarchy rejects symlinked plugin folders during validation, so local development uses `rsync` instead of a symlink. After editing files in the repo, run:
+`make install-local` / `make sync-to`:
 
-```bash
-make sync-to
-```
-
-The sync copies this repo to:
-
-```text
-~/.config/omarchy/plugins/thatbeautifuldream.homelab
-```
+1. validates this repo with `omarchy plugin validate .`;
+2. requires the current branch HEAD to be pushed to `origin`;
+3. backs up any existing non-git plugin folder;
+4. installs or updates `~/.config/omarchy/plugins/thatbeautifuldream.homelab` as an Omarchy git-managed checkout;
+5. rescans Omarchy shell plugins.
 
 Useful commands:
 
 ```bash
-make validate        # validate manifest/schema
-make reload          # force plugin rescan
-make sync-to         # copy repo files into Omarchy
-make sync-from       # copy currently installed plugin files back into this repo
-make link            # compatibility alias for sync-to; symlinks are not used
+make validate          # validate manifest/schema
+make install-local     # install/update through Omarchy's git-managed plugin flow
+make sync-to           # compatibility alias for install-local
+make link              # compatibility alias; symlinks are not used
+make update-installed  # run omarchy plugin update thatbeautifuldream.homelab --yes
+make reload            # force plugin rescan
+make status            # query live plugin status IPC
 ```
+
+`make sync-from` intentionally does not copy files back. Official Omarchy installs are ordinary git checkouts; use git in the source repo instead.
 
 ## Requirements
 
@@ -88,7 +95,15 @@ make link            # compatibility alias for sync-to; symlinks are not used
 
 ## Repo shape
 
-Omarchy expects third-party plugins to be git repos with `manifest.json` at the repository root. This repo follows that contract directly; no build step is required.
+```text
+manifest.json
+BarWidget.qml
+Panel.qml
+Model.js
+poll-services
+```
+
+The manifest declares one `bar-widget` entry point: `BarWidget.qml`. `Panel.qml` is loaded by the bar widget, so it is not declared as a separate plugin kind.
 
 ## License
 

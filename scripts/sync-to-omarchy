@@ -3,20 +3,50 @@ set -euo pipefail
 
 plugin_id="thatbeautifuldream.homelab"
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
-target_dir="${HOME}/.config/omarchy/plugins/${plugin_id}"
+plugins_dir="${HOME}/.config/omarchy/plugins"
+target_dir="${plugins_dir}/${plugin_id}"
 
-if [[ -L "$target_dir" ]]; then
-  rm -- "$target_dir"
+fail() {
+  printf 'sync-to-omarchy: %s\n' "$*" >&2
+  exit 1
+}
+
+remote_url="$(git -C "$repo_root" remote get-url origin 2>/dev/null || true)"
+[[ -n "$remote_url" ]] || fail "repo has no origin remote; add one before installing through Omarchy"
+
+branch="$(git -C "$repo_root" branch --show-current)"
+[[ -n "$branch" ]] || fail "repo is not on a named branch"
+
+local_head="$(git -C "$repo_root" rev-parse HEAD)"
+remote_ref="$(git ls-remote --exit-code "$remote_url" "refs/heads/${branch}" 2>/dev/null || true)"
+[[ -n "$remote_ref" ]] || fail "origin/${branch} does not exist; push this branch first"
+remote_head="${remote_ref%%[[:space:]]*}"
+[[ "$local_head" == "$remote_head" ]] || fail "local HEAD is not published to origin/${branch}; run: git push origin ${branch}"
+
+omarchy plugin validate "$repo_root"
+mkdir -p -- "$plugins_dir"
+
+if [[ -e "$target_dir" || -L "$target_dir" ]]; then
+  if [[ ! -L "$target_dir" && -d "$target_dir/.git" ]]; then
+    installed_id="$(jq -r '.id // empty' "$target_dir/manifest.json" 2>/dev/null || true)"
+    [[ "$installed_id" == "$plugin_id" ]] || fail "$target_dir is a git checkout for '$installed_id', not '$plugin_id'"
+
+    installed_remote="$(git -C "$target_dir" remote get-url origin 2>/dev/null || true)"
+    if [[ "$installed_remote" != "$remote_url" ]]; then
+      git -C "$target_dir" remote set-url origin "$remote_url"
+    fi
+
+    omarchy plugin update "$plugin_id" --yes
+  else
+    backup="${plugins_dir}/.${plugin_id}.bak.$(date -u +%Y%m%d%H%M%S)"
+    mv -- "$target_dir" "$backup"
+    printf 'Moved non-git plugin folder to %s\n' "$backup"
+    omarchy plugin add "$remote_url" --enable --yes
+  fi
+else
+  omarchy plugin add "$remote_url" --enable --yes
 fi
 
-mkdir -p -- "$target_dir"
-rsync -a --delete \
-  --exclude '.git/' \
-  --exclude '*.bak.*' \
-  "$repo_root/" "$target_dir/"
-chmod +x -- "$target_dir/poll-services"
-printf 'Synced repo into %s\n' "$target_dir"
-
-if command -v omarchy-shell >/dev/null 2>&1; then
-  omarchy-shell shell rescanPlugins >/dev/null || true
-fi
+omarchy plugin validate "$target_dir"
+omarchy-shell shell rescanPlugins >/dev/null || true
+printf 'Installed git-managed plugin at %s\n' "$target_dir"

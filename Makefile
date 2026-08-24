@@ -1,7 +1,7 @@
 PLUGIN_ID := thatbeautifuldream.homelab
 PLUGIN_DIR := $(HOME)/.config/omarchy/plugins/$(PLUGIN_ID)
 
-.PHONY: validate reload install-local link sync-to sync-from status
+.PHONY: validate reload install-local sync-to link update-installed sync-from status
 
 validate:
 	omarchy plugin validate .
@@ -15,6 +15,8 @@ install-local sync-to:
 link:
 	./scripts/link-local
 
+update-installed:
+	omarchy plugin update $(PLUGIN_ID) --yes
 
 sync-from:
 	./scripts/sync-from-omarchy
