@@ -26,6 +26,16 @@ remote_head="${remote_ref%%[[:space:]]*}"
 omarchy plugin validate "$repo_root"
 mkdir -p -- "$plugins_dir"
 
+for legacy_backup in "$plugins_dir/${plugin_id}.bak."*; do
+  [[ -e "$legacy_backup" || -L "$legacy_backup" ]] || continue
+  hidden_backup="${plugins_dir}/.$(basename -- "$legacy_backup")"
+  while [[ -e "$hidden_backup" || -L "$hidden_backup" ]]; do
+    hidden_backup="${hidden_backup}.$(date -u +%Y%m%d%H%M%S)"
+  done
+  mv -- "$legacy_backup" "$hidden_backup"
+  printf 'Moved visible legacy backup to %s\n' "$hidden_backup"
+done
+
 if [[ -e "$target_dir" || -L "$target_dir" ]]; then
   if [[ ! -L "$target_dir" && -d "$target_dir/.git" ]]; then
     installed_id="$(jq -r '.id // empty' "$target_dir/manifest.json" 2>/dev/null || true)"
