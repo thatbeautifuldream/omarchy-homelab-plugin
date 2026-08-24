@@ -78,6 +78,7 @@ Useful commands:
 
 ```bash
 make validate          # validate manifest/schema
+make lint              # run qmllint with Omarchy import paths
 make install-local     # install/update through Omarchy's git-managed plugin flow
 make sync-to           # compatibility alias for install-local
 make link              # compatibility alias; symlinks are not used
