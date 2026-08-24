@@ -46,12 +46,108 @@ Panel {
     else if (selectedIndex < 0) selectedIndex = 0
   }
 
+  function portIn(port, ports) {
+    for (var i = 0; i < ports.length; i++) {
+      if (port === ports[i]) return true
+    }
+    return false
+  }
+
+  function serviceTextBlob(service) {
+    return String(service && service.process || "").toLowerCase()
+  }
+
+  function hasNamedProcess(service) {
+    var process = serviceTextBlob(service)
+    return process !== "" && process !== "system"
+  }
+
+  function processLooksInternal(service) {
+    var process = serviceTextBlob(service)
+    var internal = [
+      "avahi", "chatgpt", "chrome", "code", "cups", "dnsmasq", "electron",
+      "mdns", "omp", "quickshell", "resolved", "sshd", "systemd", "tailscale"
+    ]
+    for (var i = 0; i < internal.length; i++) {
+      if (process.indexOf(internal[i]) !== -1) return true
+    }
+    return false
+  }
+
+  function portLooksInfrastructure(port) {
+    return portIn(port, [
+      22, 53, 67, 68, 111, 123, 137, 138, 139, 161, 162, 389, 445,
+      500, 514, 515, 546, 631, 1900, 3306, 5353, 5355, 5432, 6379,
+      11211, 27017
+    ])
+  }
+
+  function portLooksWeb(port) {
+    return portIn(port, [
+      80, 443, 3000, 3001, 3002, 4000, 4173, 4200, 5000, 5001, 5173,
+      5174, 5601, 7000, 8000, 8001, 8008, 8080, 8081, 8082, 8090,
+      8123, 8200, 8443, 8888, 9000, 9001, 9090, 9091, 9443, 10000
+    ])
+  }
+
+  function addressClass(address) {
+    var value = String(address || "")
+    if (value === "0.0.0.0" || value === "*" || value === "::") return "any"
+    if (value === "127.0.0.1" || value === "::1" || value.indexOf("127.0.0.") === 0) return "local"
+    return value
+  }
+
+  function addressRank(address) {
+    var value = String(address || "")
+    if (value === "0.0.0.0" || value === "*") return 0
+    if (value.indexOf("127.0.0.") === 0) return 1
+    if (value === "::") return 2
+    if (value === "::1") return 3
+    return 4
+  }
+
+  function serviceSignature(service) {
+    var docker = dockerName(service)
+    var process = docker !== "" ? "docker:" + docker : shortProcess(service)
+    return String(service && service.proto || "") + "|" + String(service && service.port || "") + "|" + String(process || "").toLowerCase()
+  }
+
+  function isDuplicateAddress(service, list) {
+    if (!service || !list) return false
+    var signature = serviceSignature(service)
+    var currentClass = addressClass(service.address)
+    var currentRank = addressRank(service.address)
+
+    for (var i = 0; i < list.length; i++) {
+      var other = list[i]
+      if (other === service) continue
+      if (serviceSignature(other) !== signature) continue
+      if (addressClass(other.address) !== currentClass) continue
+      if (addressRank(other.address) < currentRank) return true
+    }
+    return false
+  }
+
+  function serviceLooksHumanOpenable(service) {
+    if (!service) return false
+
+    var proto = String(service.proto || "")
+    var scope = String(service.scope || "")
+    var port = Number(service.port || 0)
+    var docker = dockerName(service)
+
+    if (proto !== "TCP") return false
+    if (scope === "container" || scope === "multicast") return false
+    if (portLooksInfrastructure(port)) return false
+    if (docker !== "") return true
+    if (processLooksInternal(service)) return false
+    if (portLooksWeb(port)) return true
+    if (hasNamedProcess(service) && port >= 1024) return true
+    return false
+  }
+
   function serviceIsSystem(service) {
-    var scope = String(service && service.scope || "")
-    var process = String(service && service.process || "")
-    if (scope === "container" || process.indexOf("docker:") !== -1) return false
-    if (scope === "multicast") return true
-    return process === "" || process === "system"
+    return !serviceLooksHumanOpenable(service) || isDuplicateAddress(service, serviceModel)
   }
 
   function filterServices(systemOnly) {
@@ -272,7 +368,7 @@ Panel {
 
                 Text {
                   width: parent.width
-                  text: root.effectiveLoading ? "Scanning local sockets and Docker ports." : "Enter opens. C copies. S toggles system ports."
+                  text: root.effectiveLoading ? "Scanning local sockets and Docker ports." : "Enter opens. C copies. S toggles hidden ports."
                   color: Util.alpha(root.contentForeground, 0.66)
                   font.family: root.contentFontFamily
                   font.pixelSize: Style.font.caption
@@ -310,7 +406,7 @@ Panel {
           Text {
             visible: !root.effectiveLoading && root.primaryServices.length === 0 && root.effectiveErrorText === ""
             width: parent.width
-            text: root.serviceCount === 0 ? "No listening ports found." : "Only system ports are listening. Open the system section below if you need the raw socket list."
+            text: root.serviceCount === 0 ? "No listening ports found." : "No likely app endpoints found. Open the hidden section below if you need the raw socket list."
             color: Util.alpha(root.contentForeground, 0.68)
             font.family: root.contentFontFamily
             font.pixelSize: Style.font.body
@@ -328,7 +424,7 @@ Panel {
 
               Text {
                 width: parent.width - portCountLabel.width - Style.space(8)
-                text: "Services"
+                text: "Likely apps"
                 color: Util.alpha(root.contentForeground, 0.78)
                 font.family: root.contentFontFamily
                 font.pixelSize: Style.font.caption
@@ -370,7 +466,7 @@ Panel {
           Button {
             visible: root.systemServices.length > 0
             width: parent.width
-            text: (root.showSystemPorts ? "Hide" : "Show") + " system ports (" + root.systemServices.length + ")"
+            text: (root.showSystemPorts ? "Hide" : "Show") + " hidden ports (" + root.systemServices.length + ")"
             iconText: root.showSystemPorts ? "⌄" : "›"
             leftAlign: true
             bordered: true
@@ -412,7 +508,7 @@ Panel {
           Text {
             visible: root.serviceCount > 0
             width: parent.width
-            text: (root.effectiveUpdatedAt !== "" ? "Updated " + root.effectiveUpdatedAt + ". " : "") + "System sockets stay collapsed so app endpoints remain first."
+            text: (root.effectiveUpdatedAt !== "" ? "Updated " + root.effectiveUpdatedAt + ". " : "") + "Likely app endpoints stay open; infrastructure and duplicate sockets stay collapsed."
             color: Util.alpha(root.contentForeground, 0.54)
             font.family: root.contentFontFamily
             font.pixelSize: Style.font.caption

@@ -126,8 +126,25 @@ BarWidget {
     function hide(): string { root.close(); return "ok" }
     function toggle(): string { root.togglePanel(); return "ok" }
     function status(): string {
+      var panel = panelLoader.item
+      var shown = []
+      if (panel && panel.primaryServices) {
+        for (var i = 0; i < panel.primaryServices.length; i++) {
+          var service = panel.primaryServices[i]
+          shown.push({
+            title: panel.serviceTitle(service),
+            endpoint: panel.endpointText(service),
+            process: String(service.process || ""),
+            scope: String(service.scope || "")
+          })
+        }
+      }
+
       return JSON.stringify({
         count: root.serviceCount,
+        shownCount: panel && panel.primaryServices ? panel.primaryServices.length : null,
+        hiddenCount: panel && panel.systemServices ? panel.systemServices.length : null,
+        shown: shown,
         loading: root.loading,
         error: root.errorText,
         updatedAt: root.updatedAt
