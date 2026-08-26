@@ -23,7 +23,7 @@ It scans listening TCP/UDP sockets with `ss`, merges Docker-published ports when
 
 ## Install
 
-Omarchy's official plugin contract is a public git repository with `manifest.json` at the repository root. The installer clones the repo into `~/.config/omarchy/plugins/<id>/`; updates are fast-forward pulls of that checkout.
+Omarchy's official plugin contract is a public git repository with `manifest.json` at the repository root. The installer clones the repo into `~/.config/omarchy/plugins/<id>/`; updates are fast-forward pulls of that checkout. See the [publishing guide](https://omarchyplugins.com/publish.html) for the marketplace requirements.
 
 Review the code first. Plugins run unsandboxed inside the long-running `omarchy-shell` process.
 
@@ -54,6 +54,35 @@ Remove:
 ```bash
 omarchy plugin remove thatbeautifuldream.homelab
 ```
+
+## Publish to the marketplace
+
+Before submitting, validate the exact commit you intend to publish and push it
+to the public GitHub repository:
+
+```bash
+make validate
+make lint
+git add .
+git commit -m "Prepare marketplace release"
+git push origin HEAD
+```
+
+Then open the [marketplace submission form](https://github.com/HANCORE-linux/omarchy-plugin-marketplace/issues/new?template=submit-plugin.yml)
+and submit:
+
+- **Repository URL:** `https://github.com/thatbeautifuldream/omarchy-homelab-plugin`
+- **Category:** `System`
+- **Tags:** `Bar`, `Quickshell`, `System`
+- **Maintainer notes:** `ss` from `iproute2` is required; Docker CLI and
+  `wl-copy` are optional. The plugin runs `ss`, optional `docker ps`, `xdg-open`,
+  and `wl-copy` with the current user's permissions and does not modify user
+  configuration.
+
+The submission checklist requires a public repository with install and removal
+instructions, a documented license and dependencies, permission to submit the
+code and preview assets, no implicit user-configuration overwrites, and
+acknowledgement that marketplace approval is not a security review.
 
 ## Local development
 
@@ -95,6 +124,27 @@ make status            # query live plugin status IPC
 - `ss` from `iproute2`.
 - Optional: Docker CLI for Docker-published port detection.
 - Optional: `wl-copy` for copy actions.
+
+## Safety and permissions
+
+The plugin has no install or startup hook beyond the commands declared in
+`manifest.json`. At runtime it:
+
+- reads listening sockets with `ss`;
+- optionally reads Docker-published ports with `docker ps`;
+- invokes `xdg-open` only for classified TCP endpoints; and
+- invokes `wl-copy` only when copying an endpoint.
+
+These commands run with the current user's permissions inside the
+unsandboxed `omarchy-shell` process. The plugin does not write user
+configuration or persistent state. Remove it with:
+
+```bash
+omarchy plugin remove thatbeautifuldream.homelab
+```
+
+Removing the plugin deletes its Omarchy-managed checkout; it does not alter
+the services or containers it discovers.
 
 ## Repo shape
 

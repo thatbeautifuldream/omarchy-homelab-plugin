@@ -366,27 +366,20 @@ Panel {
                   elide: Text.ElideRight
                 }
 
-                Text {
-                  width: parent.width
-                  text: root.effectiveLoading ? "Scanning local sockets and Docker ports." : "Enter opens. C copies. S toggles hidden ports."
-                  color: Util.alpha(root.contentForeground, 0.66)
-                  font.family: root.contentFontFamily
-                  font.pixelSize: Style.font.caption
-                  elide: Text.ElideRight
-                }
               }
-
               Button {
                 id: refreshButton
-                text: "Refresh"
+                text: ""
                 iconText: root.effectiveLoading ? "↻" : "R"
+                iconSpinning: root.effectiveLoading
+                tooltipText: "Refresh"
                 bordered: true
                 foreground: root.contentForeground
                 fontFamily: root.contentFontFamily
                 fontSize: Style.font.caption
                 horizontalPadding: Style.space(7)
                 verticalPadding: Style.space(5)
-                width: Style.space(82)
+                width: Style.space(36)
                 onClicked: root.refresh()
               }
             }
@@ -406,7 +399,7 @@ Panel {
           Text {
             visible: !root.effectiveLoading && root.primaryServices.length === 0 && root.effectiveErrorText === ""
             width: parent.width
-            text: root.serviceCount === 0 ? "No listening ports found." : "No likely app endpoints found. Open the hidden section below if you need the raw socket list."
+            text: root.serviceCount === 0 ? "No listening ports." : "No apps."
             color: Util.alpha(root.contentForeground, 0.68)
             font.family: root.contentFontFamily
             font.pixelSize: Style.font.body
@@ -424,7 +417,7 @@ Panel {
 
               Text {
                 width: parent.width - portCountLabel.width - Style.space(8)
-                text: "Likely apps"
+                text: "Apps"
                 color: Util.alpha(root.contentForeground, 0.78)
                 font.family: root.contentFontFamily
                 font.pixelSize: Style.font.caption
@@ -434,7 +427,7 @@ Panel {
 
               Text {
                 id: portCountLabel
-                text: root.primaryServices.length + " shown"
+                text: String(root.primaryServices.length)
                 color: Util.alpha(root.contentForeground, 0.54)
                 font.family: root.contentFontFamily
                 font.pixelSize: Style.font.caption
@@ -466,7 +459,7 @@ Panel {
           Button {
             visible: root.systemServices.length > 0
             width: parent.width
-            text: (root.showSystemPorts ? "Hide" : "Show") + " hidden ports (" + root.systemServices.length + ")"
+            text: (root.showSystemPorts ? "Hide" : "Show") + " system (" + root.systemServices.length + ")"
             iconText: root.showSystemPorts ? "⌄" : "›"
             leftAlign: true
             bordered: true
@@ -505,15 +498,6 @@ Panel {
             }
           }
 
-          Text {
-            visible: root.serviceCount > 0
-            width: parent.width
-            text: (root.effectiveUpdatedAt !== "" ? "Updated " + root.effectiveUpdatedAt + ". " : "") + "Likely app endpoints stay open; infrastructure and duplicate sockets stay collapsed."
-            color: Util.alpha(root.contentForeground, 0.54)
-            font.family: root.contentFontFamily
-            font.pixelSize: Style.font.caption
-            wrapMode: Text.WordWrap
-          }
         }
       }
     }
