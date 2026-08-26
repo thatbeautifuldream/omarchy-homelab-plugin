@@ -138,14 +138,10 @@ The plugin has no install or startup hook beyond the commands declared in
 
 These commands run with the current user's permissions inside the
 unsandboxed `omarchy-shell` process. The plugin does not write user
-configuration or persistent state. Remove it with:
+configuration or persistent state.
 
-```bash
-omarchy plugin remove thatbeautifuldream.homelab
-```
-
-Removing the plugin deletes its Omarchy-managed checkout; it does not alter
-the services or containers it discovers.
+Removing the plugin deletes its Omarchy-managed checkout. It does not alter
+the services or containers it discovers. Use the removal command above.
 
 ## Repo shape
 

@@ -14,7 +14,6 @@ Panel {
   property var services: []
   property bool loading: false
   property string errorText: ""
-  property string updatedAt: ""
   property bool showSystemPorts: false
   property int selectedIndex: 0
   property bool cursorActive: false
@@ -22,7 +21,6 @@ Panel {
   readonly property var serviceModel: hostWidget && ("services" in hostWidget) ? hostWidget.services : services
   readonly property bool effectiveLoading: hostWidget && ("loading" in hostWidget) ? hostWidget.loading === true : loading
   readonly property string effectiveErrorText: hostWidget && ("errorText" in hostWidget) ? String(hostWidget.errorText || "") : errorText
-  readonly property string effectiveUpdatedAt: hostWidget && ("updatedAt" in hostWidget) ? String(hostWidget.updatedAt || "") : updatedAt
   readonly property int serviceCount: serviceModel ? serviceModel.length : 0
   readonly property var primaryServices: filterServices(false)
   readonly property var systemServices: filterServices(true)
@@ -511,7 +509,6 @@ Panel {
       }
 
       Text {
-        id: serviceText
         width: Math.max(1, rowContent.width - portChip.width - actionPill.width - Style.space(16))
         anchors.verticalCenter: parent.verticalCenter
         text: rowRoot.systemRow

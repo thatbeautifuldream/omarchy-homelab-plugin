@@ -32,14 +32,13 @@ function scopeFor(address) {
   return "network"
 }
 
-function addService(byEndpoint, order, proto, state, address, port, scope, proc) {
+function addService(byEndpoint, order, proto, address, port, scope, proc) {
   if (!port) return
 
   var key = proto + "|" + address + "|" + port
   if (!byEndpoint[key]) {
     byEndpoint[key] = {
       proto: proto,
-      state: state,
       address: address,
       port: port,
       scope: scope,
@@ -56,9 +55,8 @@ function parseSsLine(payload, byEndpoint, order) {
   if (parts.length < 5) return
 
   var proto = parts[0].toUpperCase()
-  var state = parts[1]
   var endpoint = parseEndpoint(parts[4])
-  addService(byEndpoint, order, proto, state, endpoint.address, endpoint.port, scopeFor(endpoint.address), processName(payload))
+  addService(byEndpoint, order, proto, endpoint.address, endpoint.port, scopeFor(endpoint.address), processName(payload))
 }
 
 function parseDockerAddress(value) {
@@ -90,13 +88,13 @@ function parseDockerLine(payload, byEndpoint, order) {
     var mapped = entry.match(/^(.+)->(\d+)(?:-\d+)?\/(tcp|udp)$/i)
     if (mapped) {
       var host = parseDockerAddress(mapped[1])
-      addService(byEndpoint, order, mapped[3].toUpperCase(), "DOCKER", host.address, host.port, scopeFor(host.address), "docker: " + name)
+      addService(byEndpoint, order, mapped[3].toUpperCase(), host.address, host.port, scopeFor(host.address), "docker: " + name)
       continue
     }
 
     var exposed = entry.match(/^(\d+)(?:-\d+)?\/(tcp|udp)$/i)
     if (exposed)
-      addService(byEndpoint, order, exposed[2].toUpperCase(), "DOCKER", name, parseInt(exposed[1], 10) || 0, "container", "docker: " + name)
+      addService(byEndpoint, order, exposed[2].toUpperCase(), name, parseInt(exposed[1], 10) || 0, "container", "docker: " + name)
   }
 }
 
@@ -117,7 +115,6 @@ function parsePorts(text) {
   var services = order.map(function(key) {
     var service = byEndpoint[key]
     service.process = service.processes.join(", ")
-    service.endpoint = service.address + ":" + service.port
     return service
   })
 

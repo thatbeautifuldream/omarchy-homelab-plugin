@@ -40,7 +40,6 @@ BarWidget {
     if ("services" in target) target.services = root.services
     if ("loading" in target) target.loading = root.loading
     if ("errorText" in target) target.errorText = root.errorText
-    if ("updatedAt" in target) target.updatedAt = root.updatedAt
   }
 
   function togglePanel() {
@@ -70,7 +69,6 @@ BarWidget {
   onServicesChanged: injectPanel()
   onLoadingChanged: injectPanel()
   onErrorTextChanged: injectPanel()
-  onUpdatedAtChanged: injectPanel()
 
   Loader {
     id: panelLoader
