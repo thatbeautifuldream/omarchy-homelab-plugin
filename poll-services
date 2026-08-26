@@ -3,5 +3,5 @@
 /usr/bin/ss -H -ltnup 2>/dev/null | /usr/bin/sed 's/^/SS\t/'
 
 if command -v docker >/dev/null 2>&1; then
-  docker ps --format 'DOCKER\t{{.Names}}\t{{.Ports}}' 2>/dev/null
+  docker ps --format 'DOCKER\t{{.Names}}\t{{.Ports}}' 2>/dev/null || :
 fi
