@@ -129,3 +129,186 @@ function parsePorts(text) {
 
   return services
 }
+function portIn(port, ports) {
+  for (var i = 0; i < ports.length; i++) {
+    if (port === ports[i]) return true
+  }
+  return false
+}
+
+var internalProcessHints = [
+  "avahi", "chatgpt", "chrome", "code", "cups", "dnsmasq", "electron",
+  "mdns", "omp", "quickshell", "resolved", "sshd", "systemd", "tailscale"
+]
+
+var infrastructurePorts = [
+  22, 53, 67, 68, 111, 123, 137, 138, 139, 161, 162, 389, 445,
+  500, 514, 515, 546, 631, 1900, 3306, 5353, 5355, 5432, 6379,
+  11211, 27017
+]
+
+var webPorts = [
+  80, 443, 3000, 3001, 3002, 4000, 4173, 4200, 5000, 5001, 5173,
+  5174, 5601, 7000, 8000, 8001, 8008, 8080, 8081, 8082, 8090,
+  8123, 8200, 8443, 8888, 9000, 9001, 9090, 9091, 9443, 10000
+]
+
+function serviceTextBlob(service) {
+  return String(service && service.process || "").toLowerCase()
+}
+
+function hasNamedProcess(service) {
+  var process = serviceTextBlob(service)
+  return process !== "" && process !== "system"
+}
+
+function processLooksInternal(service) {
+  var process = serviceTextBlob(service)
+  for (var i = 0; i < internalProcessHints.length; i++) {
+    if (process.indexOf(internalProcessHints[i]) !== -1) return true
+  }
+  return false
+}
+
+function dockerName(service) {
+  var parts = String(service && service.process || "").split(/,\s*/)
+  for (var i = 0; i < parts.length; i++) {
+    if (parts[i].indexOf("docker:") === 0) return parts[i].replace(/^docker:\s*/, "")
+  }
+  return ""
+}
+
+function shortProcess(service) {
+  var process = String(service && service.process || "system")
+  if (process.indexOf("docker:") !== -1) return dockerName(service)
+  return process.replace(/\s+#\d+\b/g, "")
+}
+
+function addressClass(address) {
+  var value = String(address || "")
+  if (value === "0.0.0.0" || value === "*" || value === "::") return "any"
+  if (value === "127.0.0.1" || value === "::1" || value.indexOf("127.0.0.") === 0) return "local"
+  return value
+}
+
+function addressRank(address) {
+  var value = String(address || "")
+  if (value === "0.0.0.0" || value === "*") return 0
+  if (value.indexOf("127.0.0.") === 0) return 1
+  if (value === "::") return 2
+  if (value === "::1") return 3
+  return 4
+}
+
+function serviceSignature(service) {
+  var docker = dockerName(service)
+  var process = docker !== "" ? "docker:" + docker : shortProcess(service)
+  return String(service && service.proto || "") + "|" + String(service && service.port || "") + "|" + String(process || "").toLowerCase()
+}
+
+function isDuplicateAddress(service, list) {
+  if (!service || !list) return false
+  var signature = serviceSignature(service)
+  var currentClass = addressClass(service.address)
+  var currentRank = addressRank(service.address)
+
+  for (var i = 0; i < list.length; i++) {
+    var other = list[i]
+    if (other === service) continue
+    if (serviceSignature(other) !== signature) continue
+    if (addressClass(other.address) !== currentClass) continue
+    if (addressRank(other.address) < currentRank) return true
+  }
+  return false
+}
+
+function serviceLooksHumanOpenable(service) {
+  if (!service) return false
+
+  var proto = String(service.proto || "")
+  var scope = String(service.scope || "")
+  var port = Number(service.port || 0)
+  var docker = dockerName(service)
+
+  if (proto !== "TCP") return false
+  if (scope === "container" || scope === "multicast") return false
+  if (portIn(port, infrastructurePorts)) return false
+  if (docker !== "") return true
+  if (processLooksInternal(service)) return false
+  if (portIn(port, webPorts)) return true
+  if (hasNamedProcess(service) && port >= 1024) return true
+  return false
+}
+
+function serviceIsSystem(service, list) {
+  return !serviceLooksHumanOpenable(service) || isDuplicateAddress(service, list)
+}
+
+function partitionServices(list) {
+  var primary = []
+  var system = []
+  var services = list || []
+
+  for (var i = 0; i < services.length; i++) {
+    if (serviceIsSystem(services[i], services)) system.push(services[i])
+    else primary.push(services[i])
+  }
+
+  return { primary: primary, system: system }
+}
+
+function endpointText(service) {
+  if (!service) return ""
+  var address = String(service.address || "")
+  if (address.indexOf(":") !== -1 && address.charAt(0) !== "[") address = "[" + address + "]"
+  return address + ":" + String(service.port || "")
+}
+
+function scopeLabel(service) {
+  var scope = String(service && service.scope || "network")
+  if (scope === "all interfaces") return "public"
+  return scope
+}
+
+function serviceTitle(service) {
+  var docker = dockerName(service)
+  if (docker !== "") return docker
+
+  var process = shortProcess(service)
+  if (process !== "" && process !== "system") return process
+
+  return endpointText(service)
+}
+
+function serviceSubtitle(service) {
+  if (!service) return ""
+  var process = shortProcess(service)
+  var label = scopeLabel(service)
+  var endpoint = endpointText(service)
+
+  if (process !== "" && process !== "system" && process !== serviceTitle(service))
+    return endpoint + " · " + label + " · " + process
+
+  return endpoint + " · " + label
+}
+
+function urlHost(service) {
+  var address = String(service && service.address || "")
+  if (address === "0.0.0.0" || address === "*" || address === "::" || address === "") return "127.0.0.1"
+  if (address.indexOf(":") !== -1 && address.charAt(0) !== "[") return "[" + address + "]"
+  return address
+}
+
+function launchable(service, list) {
+  if (!service || serviceIsSystem(service, list)) return false
+  var scope = String(service.scope || "")
+  var address = String(service.address || "")
+  if (scope === "container" || scope === "multicast") return false
+  return address !== ""
+}
+
+function likelyUrl(service) {
+  var port = Number(service && service.port || 0)
+  var scheme = (port === 443 || port === 8443 || port === 9443 || port === 9444) ? "https" : "http"
+  return scheme + "://" + urlHost(service) + ":" + String(port)
+}

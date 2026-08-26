@@ -130,8 +130,8 @@ BarWidget {
         for (var i = 0; i < panel.primaryServices.length; i++) {
           var service = panel.primaryServices[i]
           shown.push({
-            title: panel.serviceTitle(service),
-            endpoint: panel.endpointText(service),
+            title: Model.serviceTitle(service),
+            endpoint: Model.endpointText(service),
             process: String(service.process || ""),
             scope: String(service.scope || "")
           })

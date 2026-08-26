@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import qs.Commons
 import qs.Ui
+import "Model.js" as Model
 
 Panel {
   id: root
@@ -22,8 +23,9 @@ Panel {
   readonly property bool effectiveLoading: hostWidget && ("loading" in hostWidget) ? hostWidget.loading === true : loading
   readonly property string effectiveErrorText: hostWidget && ("errorText" in hostWidget) ? String(hostWidget.errorText || "") : errorText
   readonly property int serviceCount: serviceModel ? serviceModel.length : 0
-  readonly property var primaryServices: filterServices(false)
-  readonly property var systemServices: filterServices(true)
+  readonly property var classifiedServices: Model.partitionServices(serviceModel)
+  readonly property var primaryServices: classifiedServices.primary
+  readonly property var systemServices: classifiedServices.system
   readonly property int visibleActionCount: primaryServices.length + (showSystemPorts ? systemServices.length : 0)
   readonly property var barIdentity: hostWidget || root
   readonly property color contentForeground: bar ? bar.foreground : Color.foreground
@@ -44,190 +46,6 @@ Panel {
     else if (selectedIndex < 0) selectedIndex = 0
   }
 
-  function portIn(port, ports) {
-    for (var i = 0; i < ports.length; i++) {
-      if (port === ports[i]) return true
-    }
-    return false
-  }
-
-  function serviceTextBlob(service) {
-    return String(service && service.process || "").toLowerCase()
-  }
-
-  function hasNamedProcess(service) {
-    var process = serviceTextBlob(service)
-    return process !== "" && process !== "system"
-  }
-
-  function processLooksInternal(service) {
-    var process = serviceTextBlob(service)
-    var internal = [
-      "avahi", "chatgpt", "chrome", "code", "cups", "dnsmasq", "electron",
-      "mdns", "omp", "quickshell", "resolved", "sshd", "systemd", "tailscale"
-    ]
-    for (var i = 0; i < internal.length; i++) {
-      if (process.indexOf(internal[i]) !== -1) return true
-    }
-    return false
-  }
-
-  function portLooksInfrastructure(port) {
-    return portIn(port, [
-      22, 53, 67, 68, 111, 123, 137, 138, 139, 161, 162, 389, 445,
-      500, 514, 515, 546, 631, 1900, 3306, 5353, 5355, 5432, 6379,
-      11211, 27017
-    ])
-  }
-
-  function portLooksWeb(port) {
-    return portIn(port, [
-      80, 443, 3000, 3001, 3002, 4000, 4173, 4200, 5000, 5001, 5173,
-      5174, 5601, 7000, 8000, 8001, 8008, 8080, 8081, 8082, 8090,
-      8123, 8200, 8443, 8888, 9000, 9001, 9090, 9091, 9443, 10000
-    ])
-  }
-
-  function addressClass(address) {
-    var value = String(address || "")
-    if (value === "0.0.0.0" || value === "*" || value === "::") return "any"
-    if (value === "127.0.0.1" || value === "::1" || value.indexOf("127.0.0.") === 0) return "local"
-    return value
-  }
-
-  function addressRank(address) {
-    var value = String(address || "")
-    if (value === "0.0.0.0" || value === "*") return 0
-    if (value.indexOf("127.0.0.") === 0) return 1
-    if (value === "::") return 2
-    if (value === "::1") return 3
-    return 4
-  }
-
-  function serviceSignature(service) {
-    var docker = dockerName(service)
-    var process = docker !== "" ? "docker:" + docker : shortProcess(service)
-    return String(service && service.proto || "") + "|" + String(service && service.port || "") + "|" + String(process || "").toLowerCase()
-  }
-
-  function isDuplicateAddress(service, list) {
-    if (!service || !list) return false
-    var signature = serviceSignature(service)
-    var currentClass = addressClass(service.address)
-    var currentRank = addressRank(service.address)
-
-    for (var i = 0; i < list.length; i++) {
-      var other = list[i]
-      if (other === service) continue
-      if (serviceSignature(other) !== signature) continue
-      if (addressClass(other.address) !== currentClass) continue
-      if (addressRank(other.address) < currentRank) return true
-    }
-    return false
-  }
-
-  function serviceLooksHumanOpenable(service) {
-    if (!service) return false
-
-    var proto = String(service.proto || "")
-    var scope = String(service.scope || "")
-    var port = Number(service.port || 0)
-    var docker = dockerName(service)
-
-    if (proto !== "TCP") return false
-    if (scope === "container" || scope === "multicast") return false
-    if (portLooksInfrastructure(port)) return false
-    if (docker !== "") return true
-    if (processLooksInternal(service)) return false
-    if (portLooksWeb(port)) return true
-    if (hasNamedProcess(service) && port >= 1024) return true
-    return false
-  }
-
-  function serviceIsSystem(service) {
-    return !serviceLooksHumanOpenable(service) || isDuplicateAddress(service, serviceModel)
-  }
-
-  function filterServices(systemOnly) {
-    var list = serviceModel || []
-    var out = []
-    for (var i = 0; i < list.length; i++) {
-      var item = list[i]
-      if (serviceIsSystem(item) === systemOnly) out.push(item)
-    }
-    return out
-  }
-
-
-  function dockerName(service) {
-    var parts = String(service && service.process || "").split(/,\s*/)
-    for (var i = 0; i < parts.length; i++) {
-      if (parts[i].indexOf("docker:") === 0) return parts[i].replace(/^docker:\s*/, "")
-    }
-    return ""
-  }
-
-  function shortProcess(service) {
-    var process = String(service && service.process || "system")
-    if (process.indexOf("docker:") !== -1) return dockerName(service)
-    return process.replace(/\s+#\d+\b/g, "")
-  }
-
-  function endpointText(service) {
-    if (!service) return ""
-    var address = String(service.address || "")
-    if (address.indexOf(":") !== -1 && address.charAt(0) !== "[") address = "[" + address + "]"
-    return address + ":" + String(service.port || "")
-  }
-
-  function scopeLabel(service) {
-    var scope = String(service && service.scope || "network")
-    if (scope === "all interfaces") return "public"
-    return scope
-  }
-
-  function serviceTitle(service) {
-    var docker = dockerName(service)
-    if (docker !== "") return docker
-
-    var process = shortProcess(service)
-    if (process !== "" && process !== "system") return process
-
-    return endpointText(service)
-  }
-
-  function serviceSubtitle(service) {
-    if (!service) return ""
-    var process = shortProcess(service)
-    var label = scopeLabel(service)
-    var endpoint = endpointText(service)
-
-    if (process !== "" && process !== "system" && process !== serviceTitle(service))
-      return endpoint + " · " + label + " · " + process
-
-    return endpoint + " · " + label
-  }
-
-  function urlHost(service) {
-    var address = String(service && service.address || "")
-    if (address === "0.0.0.0" || address === "*" || address === "::" || address === "") return "127.0.0.1"
-    if (address.indexOf(":") !== -1 && address.charAt(0) !== "[") return "[" + address + "]"
-    return address
-  }
-
-  function launchable(service) {
-    if (!service || serviceIsSystem(service)) return false
-    var scope = String(service.scope || "")
-    var address = String(service.address || "")
-    if (scope === "container" || scope === "multicast") return false
-    return address !== ""
-  }
-
-  function likelyUrl(service) {
-    var port = Number(service && service.port || 0)
-    var scheme = (port === 443 || port === 8443 || port === 9443 || port === 9444) ? "https" : "http"
-    return scheme + "://" + urlHost(service) + ":" + String(port)
-  }
 
   function shellQuote(value) {
     return "'" + String(value || "").replace(/'/g, "'\\''") + "'"
@@ -238,14 +56,14 @@ Panel {
   }
 
   function openService(service) {
-    if (!launchable(service)) return false
-    runCommand("xdg-open " + shellQuote(likelyUrl(service)))
+    if (!Model.launchable(service, root.serviceModel)) return false
+    runCommand("xdg-open " + shellQuote(Model.likelyUrl(service)))
     root.close()
     return true
   }
 
   function copyService(service) {
-    var text = launchable(service) ? likelyUrl(service) : endpointText(service)
+    var text = Model.launchable(service, root.serviceModel) ? Model.likelyUrl(service) : Model.endpointText(service)
     if (text === "") return false
     runCommand("printf %s " + shellQuote(text) + " | wl-copy")
     return true
@@ -451,7 +269,7 @@ Panel {
     signal copy()
     signal hover()
 
-    readonly property bool canOpen: root.launchable(service)
+    readonly property bool canOpen: Model.launchable(service, root.serviceModel)
     readonly property bool publicEndpoint: String(service && service.scope || "") === "all interfaces"
     readonly property color rowAccent: canOpen ? Color.accent : root.contentForeground
 
@@ -512,8 +330,8 @@ Panel {
         width: Math.max(1, rowContent.width - portChip.width - actionPill.width - Style.space(16))
         anchors.verticalCenter: parent.verticalCenter
         text: rowRoot.systemRow
-          ? root.serviceSubtitle(rowRoot.service)
-          : root.serviceTitle(rowRoot.service) + " · " + root.serviceSubtitle(rowRoot.service)
+          ? Model.serviceSubtitle(rowRoot.service)
+          : Model.serviceTitle(rowRoot.service) + " · " + Model.serviceSubtitle(rowRoot.service)
         color: root.contentForeground
         font.family: root.contentFontFamily
         font.pixelSize: Style.font.body
