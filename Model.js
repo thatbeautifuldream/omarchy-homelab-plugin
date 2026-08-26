@@ -1,15 +1,24 @@
-function parseEndpoint(value) {
+function parseHostPort(value, defaultAddress, parseBarePort) {
   var text = String(value || "")
   var bracket = text.match(/^\[(.*)\]:(\d+)$/)
   if (bracket) return { address: bracket[1], port: parseInt(bracket[2], 10) }
 
   var index = text.lastIndexOf(":")
-  if (index < 0) return { address: text, port: 0 }
+  if (index < 0) {
+    return {
+      address: defaultAddress === undefined ? text : defaultAddress,
+      port: parseBarePort ? parseInt(text, 10) || 0 : 0,
+    }
+  }
 
   return {
     address: text.slice(0, index),
     port: parseInt(text.slice(index + 1), 10) || 0,
   }
+}
+
+function parseEndpoint(value) {
+  return parseHostPort(value)
 }
 
 function appendProcess(service, proc) {
@@ -60,17 +69,7 @@ function parseSsLine(payload, byEndpoint, order) {
 }
 
 function parseDockerAddress(value) {
-  var text = String(value || "")
-  var bracket = text.match(/^\[(.*)\]:(\d+)$/)
-  if (bracket) return { address: bracket[1], port: parseInt(bracket[2], 10) }
-
-  var index = text.lastIndexOf(":")
-  if (index < 0) return { address: "container", port: parseInt(text, 10) || 0 }
-
-  return {
-    address: text.slice(0, index),
-    port: parseInt(text.slice(index + 1), 10) || 0,
-  }
+  return parseHostPort(value, "container", true)
 }
 
 function parseDockerLine(payload, byEndpoint, order) {
