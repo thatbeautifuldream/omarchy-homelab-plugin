@@ -307,7 +307,7 @@ Panel {
 
       BorderSurface {
         id: portChip
-        width: Style.space(systemRow ? 64 : 72)
+        width: Style.space(rowRoot.systemRow ? 64 : 72)
         height: Style.space(25)
         radius: Math.max(2, Style.cornerRadius - Style.space(4))
         color: rowRoot.publicEndpoint
