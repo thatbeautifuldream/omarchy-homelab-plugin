@@ -314,8 +314,8 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(520))
-    contentHeight: panel.fittedContentHeight(Style.space(220), Style.space(680))
+    contentWidth: panel.fittedContentWidth(Style.space(440))
+    contentHeight: panel.fittedContentHeight(Style.space(160), Style.space(680))
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -342,7 +342,7 @@ Panel {
         Column {
           id: contentColumn
           width: scroll.width
-          spacing: Style.space(10)
+          spacing: Style.space(6)
 
           Item {
             width: parent.width
@@ -375,7 +375,6 @@ Panel {
             font.pixelSize: Style.font.caption
             wrapMode: Text.WordWrap
           }
-
 
           Text {
             visible: !root.effectiveLoading && root.primaryServices.length === 0 && root.effectiveErrorText === ""
@@ -418,14 +417,15 @@ Panel {
             visible: root.systemServices.length > 0
             width: parent.width
             text: (root.showSystemPorts ? "Hide" : "System") + " (" + root.systemServices.length + ")"
-            iconText: root.showSystemPorts ? "⌄" : "›"
+            iconText: "›"
+            iconRotation: root.showSystemPorts ? 90 : 0
             leftAlign: true
             bordered: true
             foreground: root.contentForeground
             fontFamily: root.contentFontFamily
             fontSize: Style.font.body
             horizontalPadding: Style.space(8)
-            verticalPadding: Style.space(6)
+            verticalPadding: Style.space(4)
             onClicked: root.toggleSystemPorts()
           }
 
