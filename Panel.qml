@@ -344,44 +344,25 @@ Panel {
           width: scroll.width
           spacing: Style.space(10)
 
-          Column {
+          Item {
             width: parent.width
-            spacing: Style.space(4)
+            height: refreshButton.implicitHeight
 
-            Row {
-              width: parent.width
-              spacing: Style.space(8)
-
-              Column {
-                width: parent.width - refreshButton.width - Style.space(8)
-                spacing: Style.space(2)
-
-                Text {
-                  width: parent.width
-                  text: "Homelab"
-                  color: root.contentForeground
-                  font.family: root.contentFontFamily
-                  font.pixelSize: Style.font.title
-                  font.weight: Font.DemiBold
-                  elide: Text.ElideRight
-                }
-
-              }
-              Button {
-                id: refreshButton
-                text: ""
-                iconText: root.effectiveLoading ? "↻" : "R"
-                iconSpinning: root.effectiveLoading
-                tooltipText: "Refresh"
-                bordered: true
-                foreground: root.contentForeground
-                fontFamily: root.contentFontFamily
-                fontSize: Style.font.caption
-                horizontalPadding: Style.space(7)
-                verticalPadding: Style.space(5)
-                width: Style.space(36)
-                onClicked: root.refresh()
-              }
+            Button {
+              id: refreshButton
+              anchors.right: parent.right
+              text: ""
+              iconText: root.effectiveLoading ? "↻" : "R"
+              iconSpinning: root.effectiveLoading
+              tooltipText: "Refresh"
+              bordered: true
+              foreground: root.contentForeground
+              fontFamily: root.contentFontFamily
+              fontSize: Style.font.caption
+              horizontalPadding: Style.space(7)
+              verticalPadding: Style.space(5)
+              width: Style.space(36)
+              onClicked: root.refresh()
             }
           }
 
@@ -397,9 +378,9 @@ Panel {
 
 
           Text {
-            visible: !root.effectiveLoading && root.primaryServices.length === 0 && root.effectiveErrorText === ""
+            visible: !root.effectiveLoading && root.serviceCount === 0 && root.effectiveErrorText === ""
             width: parent.width
-            text: root.serviceCount === 0 ? "No listening ports." : "No apps."
+            text: "No ports."
             color: Util.alpha(root.contentForeground, 0.68)
             font.family: root.contentFontFamily
             font.pixelSize: Style.font.body
@@ -410,29 +391,6 @@ Panel {
             visible: root.primaryServices.length > 0
             width: parent.width
             spacing: Style.space(6)
-
-            Row {
-              width: parent.width
-              spacing: Style.space(8)
-
-              Text {
-                width: parent.width - portCountLabel.width - Style.space(8)
-                text: "Apps"
-                color: Util.alpha(root.contentForeground, 0.78)
-                font.family: root.contentFontFamily
-                font.pixelSize: Style.font.caption
-                font.weight: Font.DemiBold
-                elide: Text.ElideRight
-              }
-
-              Text {
-                id: portCountLabel
-                text: String(root.primaryServices.length)
-                color: Util.alpha(root.contentForeground, 0.54)
-                font.family: root.contentFontFamily
-                font.pixelSize: Style.font.caption
-              }
-            }
 
             Repeater {
               model: root.primaryServices
@@ -459,7 +417,7 @@ Panel {
           Button {
             visible: root.systemServices.length > 0
             width: parent.width
-            text: (root.showSystemPorts ? "Hide" : "Show") + " system (" + root.systemServices.length + ")"
+            text: (root.showSystemPorts ? "Hide" : "System") + " (" + root.systemServices.length + ")"
             iconText: root.showSystemPorts ? "⌄" : "›"
             leftAlign: true
             bordered: true
@@ -572,32 +530,18 @@ Panel {
         }
       }
 
-      Column {
+      Text {
         id: serviceText
         width: Math.max(1, rowContent.width - portChip.width - actionPill.width - Style.space(16))
-        spacing: Style.space(2)
         anchors.verticalCenter: parent.verticalCenter
-
-        Text {
-          visible: !rowRoot.systemRow
-          width: parent.width
-          text: root.serviceTitle(rowRoot.service)
-          color: root.contentForeground
-          font.family: root.contentFontFamily
-          font.pixelSize: Style.font.body
-          font.weight: Font.DemiBold
-          elide: Text.ElideRight
-        }
-
-        Text {
-          width: parent.width
-          text: rowRoot.systemRow ? root.serviceSubtitle(rowRoot.service) : root.serviceSubtitle(rowRoot.service)
-          color: Util.alpha(root.contentForeground, rowRoot.systemRow ? 0.66 : 0.66)
-          font.family: root.contentFontFamily
-          font.pixelSize: Style.font.caption
-          font.weight: rowRoot.systemRow ? Font.Medium : Font.Normal
-          elide: Text.ElideRight
-        }
+        text: rowRoot.systemRow
+          ? root.serviceSubtitle(rowRoot.service)
+          : root.serviceTitle(rowRoot.service) + " · " + root.serviceSubtitle(rowRoot.service)
+        color: root.contentForeground
+        font.family: root.contentFontFamily
+        font.pixelSize: Style.font.body
+        font.weight: rowRoot.systemRow ? Font.Normal : Font.DemiBold
+        elide: Text.ElideRight
       }
 
       BorderSurface {
