@@ -378,9 +378,9 @@ Panel {
 
 
           Text {
-            visible: !root.effectiveLoading && root.serviceCount === 0 && root.effectiveErrorText === ""
+            visible: !root.effectiveLoading && root.primaryServices.length === 0 && root.effectiveErrorText === ""
             width: parent.width
-            text: "No ports."
+            text: root.serviceCount === 0 ? "No ports." : "No apps."
             color: Util.alpha(root.contentForeground, 0.68)
             font.family: root.contentFontFamily
             font.pixelSize: Style.font.body
