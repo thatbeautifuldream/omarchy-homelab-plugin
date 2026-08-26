@@ -16,7 +16,7 @@ lint:
 	mkdir -p "$$tmp/qs"; \
 	ln -s "$(OMARCHY_PATH)/shell/Ui" "$$tmp/qs/Ui"; \
 	ln -s "$(OMARCHY_PATH)/shell/Commons" "$$tmp/qs/Commons"; \
-	"$(QMLLINT)" -I "$$tmp" --missing-property disable --signal-handler-parameters disable --unqualified disable --unused-imports disable BarWidget.qml Panel.qml HomelabIcon.qml
+	"$(QMLLINT)" -I "$$tmp" --missing-property disable --signal-handler-parameters disable --unqualified disable BarWidget.qml Panel.qml HomelabIcon.qml
 
 test-model:
 	@command -v node >/dev/null 2>&1 || { echo "node not found"; exit 1; }
