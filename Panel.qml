@@ -315,7 +315,7 @@ Panel {
     open: root.opened
     focusTarget: keyCatcher
     contentWidth: panel.fittedContentWidth(Style.space(440))
-    contentHeight: panel.fittedContentHeight(Style.space(160), Style.space(680))
+    contentHeight: panel.fittedContentHeight(contentColumn.implicitHeight, Style.space(680))
 
     PanelKeyCatcher {
       id: keyCatcher
@@ -343,28 +343,6 @@ Panel {
           id: contentColumn
           width: scroll.width
           spacing: Style.space(6)
-
-          Item {
-            width: parent.width
-            height: refreshButton.implicitHeight
-
-            Button {
-              id: refreshButton
-              anchors.right: parent.right
-              text: ""
-              iconText: root.effectiveLoading ? "↻" : "R"
-              iconSpinning: root.effectiveLoading
-              tooltipText: "Refresh"
-              bordered: true
-              foreground: root.contentForeground
-              fontFamily: root.contentFontFamily
-              fontSize: Style.font.caption
-              horizontalPadding: Style.space(7)
-              verticalPadding: Style.space(5)
-              width: Style.space(36)
-              onClicked: root.refresh()
-            }
-          }
 
           Text {
             visible: root.effectiveErrorText !== ""
