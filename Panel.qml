@@ -397,13 +397,15 @@ Panel {
             text: (root.showSystemPorts ? "Hide" : "System") + " (" + root.systemServices.length + ")"
             iconText: "›"
             iconRotation: root.showSystemPorts ? 90 : 0
+            active: root.showSystemPorts
             leftAlign: true
-            bordered: true
-            foreground: root.contentForeground
+            bordered: false
+            background: Util.alpha(root.contentForeground, 0.04)
+            foreground: root.showSystemPorts ? Color.accent : root.contentForeground
             fontFamily: root.contentFontFamily
-            fontSize: Style.font.body
-            horizontalPadding: Style.space(8)
-            verticalPadding: Style.space(4)
+            fontSize: Style.font.caption
+            horizontalPadding: Style.space(6)
+            verticalPadding: Style.space(3)
             onClicked: root.toggleSystemPorts()
           }
 
