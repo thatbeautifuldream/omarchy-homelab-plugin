@@ -25,10 +25,15 @@ function appendProcess(service, proc) {
   if (service.processes.indexOf(proc) < 0) service.processes.push(proc)
 }
 
-function processName(line) {
+function appendPid(service, pid) {
+  var value = Number(pid) || 0
+  if (value > 0 && service.pids.indexOf(value) < 0) service.pids.push(value)
+}
+
+function processInfo(line) {
   var match = String(line || "").match(/users:\(\(\"([^\"]+)\",pid=(\d+)/)
-  if (!match) return "system"
-  return match[1] + " #" + match[2]
+  if (!match) return { name: "system", pid: 0 }
+  return { name: match[1] + " #" + match[2], pid: parseInt(match[2], 10) }
 }
 
 function scopeFor(address) {
@@ -41,7 +46,7 @@ function scopeFor(address) {
   return "network"
 }
 
-function addService(byEndpoint, order, proto, address, port, scope, proc) {
+function addService(byEndpoint, order, proto, address, port, scope, proc, pid) {
   if (!port) return
 
   var key = proto + "|" + address + "|" + port
@@ -52,11 +57,13 @@ function addService(byEndpoint, order, proto, address, port, scope, proc) {
       port: port,
       scope: scope,
       processes: [],
+      pids: [],
     }
     order.push(key)
   }
 
   appendProcess(byEndpoint[key], proc)
+  appendPid(byEndpoint[key], pid)
 }
 
 function parseSsLine(payload, byEndpoint, order) {
@@ -65,7 +72,8 @@ function parseSsLine(payload, byEndpoint, order) {
 
   var proto = parts[0].toUpperCase()
   var endpoint = parseEndpoint(parts[4])
-  addService(byEndpoint, order, proto, endpoint.address, endpoint.port, scopeFor(endpoint.address), processName(payload))
+  var process = processInfo(payload)
+  addService(byEndpoint, order, proto, endpoint.address, endpoint.port, scopeFor(endpoint.address), process.name, process.pid)
 }
 
 function parseDockerAddress(value) {
@@ -310,4 +318,17 @@ function likelyUrl(service) {
   var port = Number(service && service.port || 0)
   var scheme = (port === 443 || port === 8443 || port === 9443 || port === 9444) ? "https" : "http"
   return scheme + "://" + urlHost(service) + ":" + String(port)
+}
+
+function killable(service) {
+  if (!service || String(service.proto || "") !== "TCP") return false
+  if (dockerName(service) !== "") return false
+  if (service.scope === "container" || service.scope === "multicast") return false
+
+  var pids = service.pids || []
+  return pids.length === 1 && Number(pids[0]) > 0
+}
+
+function killPid(service) {
+  return killable(service) ? Number(service.pids[0]) : 0
 }

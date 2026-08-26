@@ -55,7 +55,11 @@ test("merges Docker mappings and partitions system services", function() {
   const partitions = context.partitionServices(services)
 
   assert.equal(services.length, 4)
+  assert.deepEqual(plain(services[0].pids), [42])
   assert.deepEqual(plain(partitions.primary.map(context.serviceTitle)), ["web", "node"])
   assert.deepEqual(plain(partitions.system.map(context.endpointText)), ["[::]:8080", "db:5432"])
   assert.equal(context.likelyUrl(partitions.primary[0]), "http://127.0.0.1:8080")
+  assert.equal(context.killable(partitions.primary[0]), false)
+  assert.equal(context.killable(partitions.primary[1]), true)
+  assert.equal(context.killPid(partitions.primary[1]), 42)
 })

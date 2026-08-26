@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import qs.Commons
 import qs.Ui
 import "Model.js" as Model
@@ -65,6 +66,15 @@ Panel {
     var text = Model.launchable(service, root.serviceModel) ? Model.likelyUrl(service) : Model.endpointText(service)
     if (text === "") return false
     runCommand("printf %s " + shellQuote(text) + " | wl-copy")
+    return true
+  }
+
+  function killService(service) {
+    if (!service || Model.serviceIsSystem(service, root.serviceModel) || !Model.killable(service)) return false
+    var pid = Model.killPid(service)
+    if (pid <= 0) return false
+    Quickshell.execDetached(["kill", "-TERM", String(pid)])
+    root.refresh()
     return true
   }
 
@@ -143,6 +153,7 @@ Panel {
         if (t === "r" || t === "R") root.refresh()
         else if (t === "s" || t === "S") root.toggleSystemPorts()
         else if (t === "c" || t === "C") root.copyService(root.visibleRow(root.selectedIndex))
+        else if (t === "k" || t === "K") root.killService(root.visibleRow(root.selectedIndex))
       }
 
       Flickable {
@@ -198,6 +209,7 @@ Panel {
                 systemRow: false
                 onActivate: root.activateService(service)
                 onCopy: root.copyService(service)
+                onKill: root.killService(service)
                 onHover: function() {
                   root.cursorActive = true
                   root.selectedIndex = rowIndex
@@ -243,6 +255,7 @@ Panel {
                 systemRow: true
                 onActivate: root.copyService(service)
                 onCopy: root.copyService(service)
+                onKill: root.killService(service)
                 onHover: function() {
                   root.cursorActive = true
                   root.selectedIndex = rowIndex
@@ -266,10 +279,13 @@ Panel {
     property bool systemRow: false
     signal activate()
     signal copy()
+    signal kill()
     signal hover()
 
     readonly property bool canOpen: Model.launchable(service, root.serviceModel)
+    readonly property bool canKill: !systemRow && Model.killable(service)
     readonly property bool publicEndpoint: String(service && service.scope || "") === "all interfaces"
+    readonly property int actionWidth: actionPill.width + (canKill ? Style.space(8) + killPill.width : 0)
     readonly property color rowAccent: canOpen ? Color.accent : root.contentForeground
 
     implicitHeight: rowContent.implicitHeight + Style.space(systemRow ? 12 : 16)
@@ -326,7 +342,7 @@ Panel {
       }
 
       Text {
-        width: Math.max(1, rowContent.width - portChip.width - actionPill.width - Style.space(16))
+        width: Math.max(1, rowContent.width - portChip.width - actionWidth - Style.space(16))
         anchors.verticalCenter: parent.verticalCenter
         text: rowRoot.systemRow
           ? Model.serviceSubtitle(rowRoot.service)
@@ -353,6 +369,38 @@ Panel {
           font.family: root.contentFontFamily
           font.pixelSize: Style.font.caption
           font.weight: Font.Medium
+        }
+      }
+
+      BorderSurface {
+        id: killPill
+        visible: rowRoot.canKill
+        width: visible ? Style.space(42) : 0
+        height: Style.space(24)
+        radius: Math.max(2, Style.cornerRadius - Style.space(4))
+        color: Util.alpha(Color.urgent, 0.12)
+        borderSpec: Border.flat(Util.alpha(Color.urgent, 0.22), 1)
+
+        Text {
+          anchors.centerIn: parent
+          text: "Kill"
+          color: Color.urgent
+          font.family: root.contentFontFamily
+          font.pixelSize: Style.font.caption
+          font.weight: Font.Medium
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          acceptedButtons: Qt.LeftButton
+          onEntered: rowRoot.hover()
+          onClicked: function(mouse) {
+            rowRoot.hover()
+            mouse.accepted = true
+            rowRoot.kill()
+          }
         }
       }
     }

@@ -17,6 +17,7 @@ It scans listening TCP/UDP sockets with `ss`, merges Docker-published ports when
 - Click/keyboard actions:
   - `R`: refresh.
   - `S`: show or hide system ports.
+  - `K`: send `SIGTERM` to the selected visible app process when safe.
   - `Enter`: open launchable endpoint, copy otherwise.
   - `C`: copy selected endpoint.
   - Left click: open/copy row.
@@ -133,8 +134,10 @@ The plugin has no install or startup hook beyond the commands declared in
 
 - reads listening sockets with `ss`;
 - optionally reads Docker-published ports with `docker ps`;
-- invokes `xdg-open` only for classified TCP endpoints; and
-- invokes `wl-copy` only when copying an endpoint.
+- invokes `xdg-open` only for classified TCP endpoints;
+- invokes `wl-copy` only when copying an endpoint; and
+- sends `SIGTERM` only to a visible, non-system TCP service with exactly one
+  discovered process PID. Docker-backed and system rows cannot be killed.
 
 These commands run with the current user's permissions inside the
 unsandboxed `omarchy-shell` process. The plugin does not write user
