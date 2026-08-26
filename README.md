@@ -2,7 +2,8 @@
 
 A compact Omarchy bar widget for local homelab/service discovery.
 
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/1e587905-9e7b-4b3e-8985-363cdf5a7477" />
+<img width="2560" height="1600" alt="image" src="https://github.com/user-attachments/assets/172c30b8-0c54-4518-8644-68768face7a1" />
+
 
 It scans listening TCP/UDP sockets with `ss`, merges Docker-published ports when Docker is available, and shows app/container endpoints first while keeping raw system ports behind a disclosure.
 
