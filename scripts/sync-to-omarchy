@@ -58,5 +58,7 @@ else
 fi
 
 omarchy plugin validate "$target_dir"
-omarchy-shell shell rescanPlugins >/dev/null || true
+if ! omarchy-shell shell rescanPlugins >/dev/null; then
+  printf 'Plugin rescan failed; run: make reload\n' >&2
+fi
 printf 'Installed git-managed plugin at %s\n' "$target_dir"
