@@ -55,6 +55,10 @@ Panel {
     if (root.bar && typeof root.bar.run === "function") root.bar.run(command)
   }
 
+  function pluginPath() {
+    return Quickshell.env("HOME") + "/.config/omarchy/plugins/thatbeautifuldream.homelab"
+  }
+
   function openService(service) {
     if (!Model.launchable(service, root.serviceModel)) return false
     runCommand("xdg-open " + shellQuote(Model.likelyUrl(service)))
@@ -70,10 +74,20 @@ Panel {
   }
 
   function killService(service) {
-    if (!service || Model.serviceIsSystem(service, root.serviceModel) || !Model.killable(service)) return false
-    var pid = Model.killPid(service)
-    if (pid <= 0) return false
-    Quickshell.execDetached(["kill", "-TERM", String(pid)])
+    if (!service || Model.serviceIsSystem(service, root.serviceModel)) return false
+
+    var identity = Model.killIdentity(service)
+    if (!identity) return false
+
+    Quickshell.execDetached([
+      pluginPath() + "/kill-service",
+      String(identity.pid),
+      identity.start,
+      identity.comm,
+      identity.proto,
+      identity.address,
+      String(identity.port)
+    ])
     root.refresh()
     return true
   }
@@ -174,6 +188,7 @@ Panel {
             visible: root.effectiveErrorText !== ""
             width: parent.width
             text: root.effectiveErrorText
+            textFormat: Text.PlainText
             color: Color.urgent
             font.family: root.contentFontFamily
             font.pixelSize: Style.font.caption
@@ -184,6 +199,7 @@ Panel {
             visible: !root.effectiveLoading && root.primaryServices.length === 0 && root.effectiveErrorText === ""
             width: parent.width
             text: root.serviceCount === 0 ? "No ports." : "No apps."
+            textFormat: Text.PlainText
             color: Util.alpha(root.contentForeground, 0.68)
             font.family: root.contentFontFamily
             font.pixelSize: Style.font.body
@@ -334,6 +350,7 @@ Panel {
         Text {
           anchors.centerIn: parent
           text: String(rowRoot.service.proto || "") + " " + String(rowRoot.service.port || "")
+          textFormat: Text.PlainText
           color: rowRoot.publicEndpoint ? Color.accent : root.contentForeground
           font.family: root.contentFontFamily
           font.pixelSize: Style.font.caption
@@ -347,6 +364,7 @@ Panel {
         text: rowRoot.systemRow
           ? Model.serviceSubtitle(rowRoot.service)
           : Model.serviceTitle(rowRoot.service) + " · " + Model.serviceSubtitle(rowRoot.service)
+        textFormat: Text.PlainText
         color: root.contentForeground
         font.family: root.contentFontFamily
         font.pixelSize: Style.font.body
@@ -365,6 +383,7 @@ Panel {
         Text {
           anchors.centerIn: parent
           text: rowRoot.canOpen ? "Open" : "Copy"
+          textFormat: Text.PlainText
           color: rowRoot.canOpen ? Color.accent : Util.alpha(root.contentForeground, 0.74)
           font.family: root.contentFontFamily
           font.pixelSize: Style.font.caption
@@ -384,6 +403,7 @@ Panel {
         Text {
           anchors.centerIn: parent
           text: "Kill"
+          textFormat: Text.PlainText
           color: Color.urgent
           font.family: root.contentFontFamily
           font.pixelSize: Style.font.caption

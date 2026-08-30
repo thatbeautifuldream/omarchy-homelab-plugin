@@ -94,8 +94,8 @@ BarWidget {
     stderr: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        var message = String(text || "").trim()
-        if (message !== "") root.errorText = message
+        var message = Model.boundedText(text, Model.MAX_PROCESS_TEXT_CHARS).trim()
+        if (message !== "") root.errorText = Model.boundedText(message, Model.MAX_TEXT_CHARS)
       }
     }
 

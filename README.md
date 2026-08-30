@@ -88,11 +88,11 @@ acknowledgement that marketplace approval is not a security review.
 
 ## Local development
 
-Work in the source repo, push commits, then update the installed Omarchy checkout through the same git-managed path users get.
+Work from any normal source checkout. Do not install the plugin by copying files
+into a personal development path; use Omarchy's git-managed plugin flow so the
+local install matches marketplace users.
 
 ```bash
-git clone https://github.com/thatbeautifuldream/omarchy-homelab-plugin.git ~/code/self/omarchy-homelab-plugin
-cd ~/code/self/omarchy-homelab-plugin
 make validate
 make install-local
 ```
@@ -102,7 +102,8 @@ make install-local
 1. validates this repo with `omarchy plugin validate .`;
 2. requires the current branch HEAD to be pushed to `origin`;
 3. backs up any existing non-git plugin folder;
-4. installs or updates `~/.config/omarchy/plugins/thatbeautifuldream.homelab` as an Omarchy git-managed checkout;
+4. installs or updates Omarchy's managed checkout for `thatbeautifuldream.homelab`
+   under `~/.config/omarchy/plugins/`;
 5. rescans Omarchy shell plugins.
 
 Useful commands:
@@ -110,6 +111,7 @@ Useful commands:
 ```bash
 make validate          # validate manifest/schema
 make lint              # run qmllint with Omarchy import paths
+make test-model        # run model regression tests
 make install-local     # install/update through Omarchy's git-managed plugin flow
 make sync-to           # compatibility alias for install-local
 make link              # compatibility alias; symlinks are not used
@@ -136,8 +138,8 @@ The plugin has no install or startup hook beyond the commands declared in
 - optionally reads Docker-published ports with `docker ps`;
 - invokes `xdg-open` only for classified TCP endpoints;
 - invokes `wl-copy` only when copying an endpoint; and
-- sends `SIGTERM` only to a visible, non-system TCP service with exactly one
-  discovered process PID. Docker-backed and system rows cannot be killed.
+- sends `SIGTERM` only after revalidating the selected visible app process by
+  PID, `/proc` start time, command name, and current listening socket. Docker-backed and system rows cannot be killed.
 
 These commands run with the current user's permissions inside the
 unsandboxed `omarchy-shell` process. The plugin does not write user
@@ -156,6 +158,7 @@ Model.js
 HomelabIcon.qml
 homelab.svg
 poll-services
+kill-service
 ```
 
 The manifest declares one `bar-widget` entry point: `BarWidget.qml`. `Panel.qml` is loaded by the bar widget, so it is not declared as a separate plugin kind.

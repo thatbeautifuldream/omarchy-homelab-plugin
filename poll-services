@@ -1,7 +1,73 @@
 #!/bin/sh
 
-/usr/bin/ss -H -ltnup 2>/dev/null | /usr/bin/sed 's/^/SS\t/'
+MAX_BYTES=65536
+MAX_LINES=256
+MAX_FIELDS=16
+MAX_FIELD_CHARS=192
+
+cap_ss() {
+  /usr/bin/awk \
+    -v max_lines="$MAX_LINES" \
+    -v max_fields="$MAX_FIELDS" \
+    -v max_field_chars="$MAX_FIELD_CHARS" '
+      function cap(value) {
+        return length(value) > max_field_chars ? substr(value, 1, max_field_chars) : value
+      }
+
+      function proc_start(pid, file, stat, rest, fields) {
+        file = "/proc/" pid "/stat"
+        if ((getline stat < file) <= 0) return ""
+        close(file)
+        sub(/^.*\) /, "", stat)
+        split(stat, fields, " ")
+        return fields[20]
+      }
+
+      function proc_comm(pid, file, comm) {
+        file = "/proc/" pid "/comm"
+        if ((getline comm < file) <= 0) return ""
+        close(file)
+        return cap(comm)
+      }
+
+      function proc_meta(line, pid) {
+        if (!match(line, /pid=[0-9]+/)) return ""
+        pid = substr(line, RSTART + 4, RLENGTH - 4)
+        return "\tOMH_PID=" pid "\tOMH_START=" proc_start(pid) "\tOMH_COMM=" proc_comm(pid)
+      }
+
+      NF {
+        if (++rows > max_lines) exit
+        out = ""
+        for (i = 1; i <= NF && i <= max_fields; i++)
+          out = out (i == 1 ? "" : " ") cap($i)
+        print "SS\t" out proc_meta($0)
+      }
+    '
+}
+
+cap_docker() {
+  /usr/bin/awk \
+    -F "\t" \
+    -v max_lines="$MAX_LINES" \
+    -v max_field_chars="$MAX_FIELD_CHARS" '
+      function cap(value) {
+        return length(value) > max_field_chars ? substr(value, 1, max_field_chars) : value
+      }
+
+      NF {
+        if (++rows > max_lines) exit
+        print "DOCKER\t" cap($1) "\t" cap($2)
+      }
+    '
+}
+
+/usr/bin/ss -H -ltnup 2>/dev/null \
+  | /usr/bin/dd bs="$MAX_BYTES" count=1 2>/dev/null \
+  | cap_ss
 
 if command -v docker >/dev/null 2>&1; then
-  docker ps --format 'DOCKER\t{{.Names}}\t{{.Ports}}' 2>/dev/null || :
+  docker ps --format '{{.Names}}\t{{.Ports}}' 2>/dev/null \
+    | /usr/bin/dd bs="$MAX_BYTES" count=1 2>/dev/null \
+    | cap_docker || :
 fi

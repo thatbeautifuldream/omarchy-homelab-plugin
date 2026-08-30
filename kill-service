@@ -1,0 +1,77 @@
+#!/bin/sh
+
+PID=${1:-}
+EXPECTED_START=${2:-}
+EXPECTED_COMM=${3:-}
+EXPECTED_PROTO=${4:-}
+EXPECTED_ADDRESS=${5:-}
+EXPECTED_PORT=${6:-}
+
+case "$PID" in
+  ''|*[!0-9]*) exit 64 ;;
+esac
+case "$EXPECTED_START" in
+  ''|*[!0-9]*) exit 64 ;;
+esac
+case "$EXPECTED_PORT" in
+  ''|*[!0-9]*) exit 64 ;;
+esac
+
+EXPECTED_PROTO=$(printf '%s' "$EXPECTED_PROTO" | /usr/bin/tr '[:upper:]' '[:lower:]')
+case "$EXPECTED_PROTO" in
+  tcp) SS_ARGS='-H -ltnp' ;;
+  udp) SS_ARGS='-H -lunp' ;;
+  *) exit 64 ;;
+esac
+
+read_start() {
+  stat_file="/proc/$1/stat"
+  IFS= read -r stat < "$stat_file" || return 1
+  stat=${stat##*) }
+  set -- $stat
+  shift 19 || return 1
+  printf '%s\n' "$1"
+}
+
+read_comm() {
+  IFS= read -r comm < "/proc/$1/comm" || return 1
+  printf '%s\n' "$comm"
+}
+
+CURRENT_START=$(read_start "$PID") || exit 1
+[ "$CURRENT_START" = "$EXPECTED_START" ] || exit 1
+
+CURRENT_COMM=$(read_comm "$PID") || exit 1
+[ "$CURRENT_COMM" = "$EXPECTED_COMM" ] || exit 1
+
+/usr/bin/ss $SS_ARGS 2>/dev/null | /usr/bin/awk \
+  -v proto="$EXPECTED_PROTO" \
+  -v address="$EXPECTED_ADDRESS" \
+  -v port="$EXPECTED_PORT" \
+  -v pid="$PID" '
+    function endpoint_address(endpoint, value) {
+      value = endpoint
+      if (value ~ /^\[/) {
+        sub(/^\[/, "", value)
+        sub(/\]:[0-9]+$/, "", value)
+        return value
+      }
+      sub(/:[0-9]+$/, "", value)
+      return value
+    }
+
+    function endpoint_port(endpoint, value) {
+      value = endpoint
+      sub(/^.*:/, "", value)
+      return value
+    }
+
+    tolower($1) == proto \
+      && endpoint_address($5) == address \
+      && endpoint_port($5) == port \
+      && index($0, "pid=" pid) > 0 { found = 1; exit }
+
+    END { exit found ? 0 : 1 }
+  ' || exit 1
+
+/usr/bin/kill -TERM -- "$PID"

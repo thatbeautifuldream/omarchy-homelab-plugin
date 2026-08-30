@@ -1,5 +1,19 @@
-function parseHostPort(value, defaultAddress, parseBarePort) {
+var MAX_INPUT_CHARS = 65536
+var MAX_INPUT_LINES = 512
+var MAX_SERVICES = 256
+var MAX_DOCKER_ENTRIES = 64
+var MAX_PROCESSES_PER_SERVICE = 4
+var MAX_TEXT_CHARS = 192
+var MAX_PROCESS_TEXT_CHARS = 768
+
+function boundedText(value, max) {
   var text = String(value || "")
+  var limit = Number(max || MAX_TEXT_CHARS)
+  return text.length > limit ? text.slice(0, limit) : text
+}
+
+function parseHostPort(value, defaultAddress, parseBarePort) {
+  var text = boundedText(value, MAX_TEXT_CHARS)
   var bracket = text.match(/^\[(.*)\]:(\d+)$/)
   if (bracket) return { address: bracket[1], port: parseInt(bracket[2], 10) }
 
@@ -22,19 +36,41 @@ function parseEndpoint(value) {
 }
 
 function appendProcess(service, proc) {
-  if (service.processes.indexOf(proc) < 0) service.processes.push(proc)
+  var value = boundedText(proc || "system", MAX_TEXT_CHARS)
+  if (service.processes.length >= MAX_PROCESSES_PER_SERVICE) return
+  if (service.processes.indexOf(value) < 0) service.processes.push(value)
 }
 
-function appendPid(service, pid) {
+function appendPid(service, pid, start, comm) {
   var value = Number(pid) || 0
-  if (value > 0 && service.pids.indexOf(value) < 0) service.pids.push(value)
+  if (value <= 0 || service.pids.length >= MAX_PROCESSES_PER_SERVICE) return
+  if (service.pids.indexOf(value) >= 0) return
+
+  service.pids.push(value)
+  service.pidIdentities.push({
+    pid: value,
+    start: boundedText(start, MAX_TEXT_CHARS),
+    comm: boundedText(comm, MAX_TEXT_CHARS),
+  })
 }
 
 function processInfo(line) {
-  var match = String(line || "").match(/users:\(\(\"([^\"]+)\",pid=(\d+)/)
-  if (!match) return { name: "system", pid: 0 }
-  return { name: match[1] + " #" + match[2], pid: parseInt(match[2], 10) }
+  var text = String(line || "")
+  var match = text.match(/users:\(\(\"([^\"]+)\",pid=(\d+)/)
+  if (!match) return { name: "system", pid: 0, start: "", comm: "" }
+
+  var pid = parseInt(match[2], 10)
+  var start = text.match(/\tOMH_START=([0-9]+)/)
+  var comm = text.match(/\tOMH_COMM=([^\t\s]+)/)
+  var name = boundedText(match[1], MAX_TEXT_CHARS)
+  return {
+    name: name + " #" + pid,
+    pid: pid,
+    start: start ? start[1] : "",
+    comm: comm ? boundedText(comm[1], MAX_TEXT_CHARS) : name,
+  }
 }
+
 
 function scopeFor(address) {
   var value = String(address || "")
@@ -46,11 +82,16 @@ function scopeFor(address) {
   return "network"
 }
 
-function addService(byEndpoint, order, proto, address, port, scope, proc, pid) {
+function addService(byEndpoint, order, proto, address, port, scope, proc, pid, start, comm) {
   if (!port) return
+
+  proto = boundedText(proto, MAX_TEXT_CHARS)
+  address = boundedText(address, MAX_TEXT_CHARS)
+  scope = boundedText(scope, MAX_TEXT_CHARS)
 
   var key = proto + "|" + address + "|" + port
   if (!byEndpoint[key]) {
+    if (order.length >= MAX_SERVICES) return
     byEndpoint[key] = {
       proto: proto,
       address: address,
@@ -58,13 +99,15 @@ function addService(byEndpoint, order, proto, address, port, scope, proc, pid) {
       scope: scope,
       processes: [],
       pids: [],
+      pidIdentities: [],
     }
     order.push(key)
   }
 
   appendProcess(byEndpoint[key], proc)
-  appendPid(byEndpoint[key], pid)
+  appendPid(byEndpoint[key], pid, start, comm)
 }
+
 
 function parseSsLine(payload, byEndpoint, order) {
   var parts = String(payload || "").trim().split(/\s+/)
@@ -73,7 +116,7 @@ function parseSsLine(payload, byEndpoint, order) {
   var proto = parts[0].toUpperCase()
   var endpoint = parseEndpoint(parts[4])
   var process = processInfo(payload)
-  addService(byEndpoint, order, proto, endpoint.address, endpoint.port, scopeFor(endpoint.address), process.name, process.pid)
+  addService(byEndpoint, order, proto, endpoint.address, endpoint.port, scopeFor(endpoint.address), process.name, process.pid, process.start, process.comm)
 }
 
 function parseDockerAddress(value) {
@@ -84,12 +127,12 @@ function parseDockerLine(payload, byEndpoint, order) {
   var fields = String(payload || "").split("\t")
   if (fields.length < 2) return
 
-  var name = fields[0] || "container"
-  var ports = fields.slice(1).join("\t")
+  var name = boundedText(fields[0] || "container", MAX_TEXT_CHARS)
+  var ports = boundedText(fields.slice(1).join("\t"), MAX_PROCESS_TEXT_CHARS)
   var entries = ports.split(/,\s*/)
 
-  for (var i = 0; i < entries.length; i++) {
-    var entry = entries[i]
+  for (var i = 0; i < entries.length && i < MAX_DOCKER_ENTRIES; i++) {
+    var entry = boundedText(entries[i], MAX_TEXT_CHARS)
     if (entry === "") continue
 
     var mapped = entry.match(/^(.+)->(\d+)(?:-\d+)?\/(tcp|udp)$/i)
@@ -105,13 +148,14 @@ function parseDockerLine(payload, byEndpoint, order) {
   }
 }
 
+
 function parsePorts(text) {
   var byEndpoint = {}
   var order = []
-  var lines = String(text || "").split(/\r?\n/)
+  var lines = boundedText(text, MAX_INPUT_CHARS).split(/\r?\n/)
 
-  for (var i = 0; i < lines.length; i++) {
-    var line = lines[i]
+  for (var i = 0; i < lines.length && i < MAX_INPUT_LINES; i++) {
+    var line = boundedText(lines[i], MAX_PROCESS_TEXT_CHARS)
     if (line.trim() === "") continue
 
     if (line.indexOf("SS\t") === 0) parseSsLine(line.slice(3), byEndpoint, order)
@@ -121,7 +165,7 @@ function parsePorts(text) {
 
   var services = order.map(function(key) {
     var service = byEndpoint[key]
-    service.process = service.processes.join(", ")
+    service.process = boundedText(service.processes.join(", "), MAX_PROCESS_TEXT_CHARS)
     return service
   })
 
@@ -136,6 +180,7 @@ function parsePorts(text) {
 
   return services
 }
+
 function portIn(port, ports) {
   for (var i = 0; i < ports.length; i++) {
     if (port === ports[i]) return true
@@ -326,9 +371,28 @@ function killable(service) {
   if (service.scope === "container" || service.scope === "multicast") return false
 
   var pids = service.pids || []
-  return pids.length === 1 && Number(pids[0]) > 0
+  var identities = service.pidIdentities || []
+  return pids.length === 1
+    && Number(pids[0]) > 0
+    && identities.length === 1
+    && Number(identities[0].pid) === Number(pids[0])
+    && String(identities[0].start || "") !== ""
+    && String(identities[0].comm || "") !== ""
 }
 
 function killPid(service) {
   return killable(service) ? Number(service.pids[0]) : 0
+}
+
+function killIdentity(service) {
+  if (!killable(service)) return null
+  var identity = service.pidIdentities[0]
+  return {
+    pid: Number(identity.pid),
+    start: boundedText(identity.start, MAX_TEXT_CHARS),
+    comm: boundedText(identity.comm, MAX_TEXT_CHARS),
+    proto: boundedText(service.proto, MAX_TEXT_CHARS),
+    address: boundedText(service.address, MAX_TEXT_CHARS),
+    port: Number(service.port || 0),
+  }
 }
